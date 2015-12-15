@@ -1,61 +1,52 @@
 #!/usr/bin/env python
-# This is for libanki 2.0.12
-# See libanki/tests/*
 
 import sys, re, unicode_support_checker
-from anki import Collection as aopen
+from anki import Collection
 
-if __name__ != '__main__' or len(sys.argv) < 5:
-    sys.exit("Usage: "+sys.argv[0]+" '<collection path>' '<deck name>' '<card front>' '<card back>'")
+def main():
 
-def add_card_to_deck(coll_file, deck_name, card_front, card_back):
+    collection_path = '/Users/jiamingz/Documents/Anki/User 1/collection.anki2'
+    deck_name = u'Language::English'
+    model_name = u'English Word'
+    fact = {
+        'Word': 'Word1',
+        'Sound': 'Sound1',
+        'Image': 'Image',
+        'Meaning': 'Meaning'
+    }
 
-    # All Decks are in a single Collection
-    print("Get Collection/Deck '"+coll_file+"/"+deck_name+"'")
-    deck = aopen( coll_file );
-    deckId = deck.decks.id( deck_name )
+    m = AnkiManager(collection_path, deck_name, model_name)
+    m.add_node(**fact)
+    m.save()
+    m.close()
 
-    # todo Not sure why a simple 'select' doesnt do the model stuff for me...
-    deck.decks.select( deckId )
-    basic_model = deck.models.byName('Basic')
-    basic_model['did'] = deckId
-    deck.models.save( basic_model )
-    deck.models.setCurrent( basic_model )
+class AnkiManager:
+    def __init__(self, collection_path, deck_name, model_name):
+        self.collection = Collection(collection_path)
+        self.select_deck(deck_name)
+        self.select_model(model_name)
 
-    # todo I don't see any other ways to prevent creating a new Deck
-    if deck.cardCount == 0:
-        sys.exit("ERROR: Collection/Deck '"+coll_file+"/"+deck_name+"' does not exist.")
+    def select_deck(self, deck_name):
+        deck_manager = self.collection.decks
+        deck_id = deck_manager.id(deck_name)
+        deck_manager.select(deck_id)
+    def select_model(self, model_name):
+        model_manager = self.collection.models
+        model = model_manager.byName(model_name)
+        model_manager.setCurrent(model)
 
-    print("Deck has "+str(deck.cardCount())+" cards")
+    def add_node(self, **argv):
+        node = self.collection.newNote()
+        for key in argv:
+            node[key] = argv[key].decode('utf-8')
+        print node.items()
+        self.collection.addNote(node)
 
-    # Build the card
-    # todo Using .decode('utf-8'), I no longer get 'duplicate card' errors :p
-    print("Make a new Card for: "+card_front)
-    fact            = deck.newNote()
-    fact['Front']   = card_front.decode('utf-8')
-    fact['Back']    = card_back.decode('utf-8')
+    def save(self):
+        self.collection.save()
 
-    # Add Card to the Deck
-    try:
-        deck.addNote( fact )
-    except Exception, e:
-        if hasattr(e, "data"):
-            sys.exit("ERROR: Could not add '"+e.data['field']+"': "+e.data['type'])
-        else:
-            sys.exit(e)
-
-    # Done.
-    print("Save the Deck")
-    deck.save()
-    deck.close()
+    def close(self):
+        self.collection.close()
 
 if __name__ == '__main__':
-    # Mung arguments
-    coll_file   = sys.argv[1]
-    deck_name   = sys.argv[2]
-    card_front  = sys.argv[3]
-    card_back   = sys.argv[4]
-    # todo Not even this works. It refuses to embed the newlines in the Card
-    card_back = re.sub(r"\\n", "\n", card_back)
-
-    add_card_to_deck(coll_file, deck_name, card_front, card_back)
+    main()
